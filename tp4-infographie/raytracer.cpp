@@ -33,13 +33,20 @@ void Raytracer::render(const char *filename, const char *depth_filename,
 	//!!! NOTE UTILE : tan() prend des radians plutot que des degrés. Utilisez deg2rad() pour la conversion.
 	//!!! NOTE UTILE : Le plan de vue peut être n'importe où, mais il sera implémenté différement.
 	// Vous trouverez des références dans le cours.
-
+	float t = 2* scene.camera.zNear * deg2rad(scene.camera.fovy/2);
+	float r = t * scene.camera.aspect;
+	float l = -r;
+	float b = -t;
+	Vector u = scene.camera.up.cross(scene.camera.center);
+	u.normalize();
+	Vector v = scene.camera.center.cross(u);
+	v.normalize();
 
     // Itère sur tous les pixels de l'image.
     for(int y = 0; y < scene.resolution[1]; y++) {
         for(int x = 0; x < scene.resolution[0]; x++) {
 
-            // Génère le rayon approprié pour ce pixel.
+            // Génère le rayon approprié pour ce pixel.	
 			Ray ray;
 			if (scene.objects.empty())
 			{
@@ -53,7 +60,7 @@ void Raytracer::render(const char *filename, const char *depth_filename,
 				// Mettez en place le rayon primaire en utilisant les paramètres de la caméra.
 				//!!! NOTE UTILE : tous les rayons dont les coordonnées sont exprimées dans le
 				//                 repère monde doivent avoir une direction normalisée.
-				
+				ray =Ray(scene.camera.position, ((x + 0.5)*((r-l)/scene.resolution[0])*u - (y+0.5)*((t-b)/scene.resolution[1])*v).normalized());
 			}
 
             // Initialise la profondeur de récursivité du rayon.
@@ -132,6 +139,18 @@ bool Raytracer::trace(Ray const &ray,
 		// @@@@@@ VOTRE CODE ICI
 		// Notez que pour Object::intersect(), le paramètre hit correspond à celui courant.
 		// Votre intersect() devrait être implémenté pour exclure toute intersection plus lointaine que hit.depth
+		Intersection hit;
+		unsigned int i;
+		for (i = 0; i < scene.objects.size(); ++i) {
+			if (scene.objects[i]->intersect(ray, hit)) {
+				
+				if (hit.depth < depth) {
+					outColor = shade(ray, rayDepth, hit, scene.materials, scene);
+					depth = hit.depth;
+				}
+			}
+		}
+
 		
 	}
 
