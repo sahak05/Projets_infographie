@@ -7,6 +7,7 @@
 #include <map>
 #include <vector>
 #include <iostream>
+#include <algorithm>
 
 
 bool Object::intersect(Ray ray, Intersection &hit) const 
@@ -48,8 +49,67 @@ bool Sphere::localIntersect(Ray const &ray, Intersection &hit) const
 	//
 	// NOTE : hit.depth est la profondeur de l'intersection actuellement la plus proche,
 	// donc n'acceptez pas les intersections qui occurent plus loin que cette valeur.
+	/*Vector spherePos = {0,0,0};
+	Vector rayon = ray.direction.normalized();//-ray.origin;
+	float t = rayon.dot(-ray.origin.normalized());
+	Vector p = ray.origin + t * rayon;//ray.direction;
+	float y = p.length();
 
-	return false;
+	if (y >	 radius) {
+		return false;
+	}
+
+	float x = sqrt(radius * radius - y * y);
+	//t1 et t2 les deux intersections avec la sphere
+	float t1 = std::max(t - x, 0.f);
+	float t2 = std::min(t + x, float(hit.depth));
+	float t3 = std::min(t1, t2);
+	if (hit.depth > t3) {
+		hit.depth = t3;
+		hit.position = p; 
+		hit.normal = { 2 * p[0],2 * p[1],2 * p[2] };
+		
+	}*/
+	double b = ray.origin.dot(ray.direction);
+	double a = ray.direction.dot(ray.direction);
+	double c = (ray.origin.dot(ray.origin)) - radius * radius;
+	double discriminant =  b*b - 4 * a * c;
+	double epsilon = 0.0001f;
+	if (discriminant < -0.001) {
+	 return false;
+	}
+	if (discriminant < 0.001) {
+		double t = -sqrt(discriminant) / 2 * a;
+		Vector p = ray.origin + t * ray.direction;
+		if (hit.depth < t) {
+			hit.depth = t;
+			hit.normal = p.normalized();
+			hit.position = p;
+		}
+		return true;
+	}
+	else{
+		double t1 =  (ray.origin.dot(ray.direction)+sqrt(discriminant))/(2*ray.direction.dot(ray.direction));
+
+		double t2 =  (ray.origin.dot(ray.direction)-sqrt(discriminant))/(2*ray.direction.dot(ray.direction));
+		double t3 = 0.0;
+		if (t1 > 0 && t2 > 0) {  t3 = std::min(t1, t2); }
+
+		if (t1 < 0 && t2>0) {  t3 = t2; }
+
+		if (t1 > 0 && t2 < 0) {  t3 = t1; }
+
+		Vector p = ray.origin + t3 * ray.direction;
+		
+		if (hit.depth > t3){
+			hit.depth = t3;
+			hit.normal = p.normalized();
+			hit.position = p;
+		}
+		return true;
+	}
+	
+	//return true;
 }
 
 
@@ -61,8 +121,22 @@ bool Plane::localIntersect(Ray const &ray, Intersection &hit) const
 	//
 	// NOTE : hit.depth est la profondeur de l'intersection actuellement la plus proche,
 	// donc n'acceptez pas les intersections qui occurent plus loin que cette valeur.
-
-    return false;
+	Vector rayon = ray.direction;//-ray.origin;
+	Vector normalPlan = { 0,0,1 };
+	if (rayon.dot(normalPlan) == 0) {//veut dire plan et rayon meme direction
+		return false;
+	}
+	//le parametre t avec z=0
+	double t=-ray.origin[2]/ray.direction[2];
+	//coordones du point secant
+	Vector pointS = { ray.origin[0] + t * ray.direction[0], ray.origin[1] + t * ray.direction[1],ray.origin[2] + t * ray.direction[2] };
+	if (hit.depth > t) {
+		hit.depth = t;
+		hit.position = pointS;
+		hit.normal = normalPlan;
+	}
+	
+    return true;
 }
 
 
@@ -126,6 +200,40 @@ bool Mesh::intersectTriangle(Ray const &ray,
 	Vector const &p0 = positions[tri[0].pi];
 	Vector const &p1 = positions[tri[1].pi];
 	Vector const &p2 = positions[tri[2].pi];
+
+	//normale du triangle 
+	Vector p1p2 = p2 - p1;
+	Vector p2p0 = p0 - p2;
+	Vector p0p2 = p2 - p0;
+	Vector p0p1 = p1 - p0;
+	Vector normal = p0p2.cross(p0p1);
+	normal.normalize(); //a revoir 
+	//composant D de l'equation
+	double d = -1*normal.dot(p0);
+
+	double t = (-d - normal.dot(ray.origin)) / (normal.dot(ray.direction));
+
+	if (t <= 0.00) {
+		return false;
+	}
+	//Composants du vecteur P intersection
+	Vector p = ray.origin + t * ray.direction;
+
+	Vector p0p = p - p0;
+	Vector p1p = p - p1;
+	Vector p2p = p - p2;
+
+	//produits vectoriel chaque sommets 
+	Vector p0V = p0p1.cross(p0p);
+	Vector p1V = p1p2.cross(p1p);
+	Vector p2V = p2p0.cross(p2p);
+
+	if ((p0V.dot(p1V) >= 0 && p0V.dot(p2V) >= 0 && p1V.dot(p2V) >= 0) || (p0V.dot(p1V) < 0 && p0V.dot(p2V) < 0 && p1V.dot(p2V) < 0)) {
+		hit.depth = t;
+		hit.position = p;
+		hit.normal = p.normalized();
+		return true;
+	}
 
 	// @@@@@@ VOTRE CODE ICI
 	// Décidez si le rayon intersecte le triangle (p0,p1,p2).
