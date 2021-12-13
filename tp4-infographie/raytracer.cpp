@@ -33,16 +33,16 @@ void Raytracer::render(const char *filename, const char *depth_filename,
 	//!!! NOTE UTILE : tan() prend des radians plutot que des degrés. Utilisez deg2rad() pour la conversion.
 	//!!! NOTE UTILE : Le plan de vue peut être n'importe où, mais il sera implémenté différement.
 	// Vous trouverez des références dans le cours.
-	double t =  scene.camera.zNear * tan(deg2rad(scene.camera.fovy/2));
+	double t = tan(deg2rad(scene.camera.fovy / 2)) * scene.camera.zNear;
 	double r = t * scene.camera.aspect;
 	double l = -r;
 	double b = -t;
 	Vector w = (scene.camera.center - scene.camera.position).normalized();
 	Vector u = w.cross(scene.camera.up);
-	u.normalize();
-	Vector v = scene.camera.up;
-	v.normalize();
-	Vector o = scene.camera.position + scene.camera.zNear * w + l * u + t * v;
+	//u.normalize();
+	Vector v = -scene.camera.up;
+	//v.normalize();
+	Vector o = scene.camera.position + (scene.camera.zNear * w) + (l * u) + (t * v);
 
     // Itère sur tous les pixels de l'image.
     for(int y = 0; y < scene.resolution[1]; y++) {
@@ -62,7 +62,7 @@ void Raytracer::render(const char *filename, const char *depth_filename,
 				// Mettez en place le rayon primaire en utilisant les paramètres de la caméra.
 				//!!! NOTE UTILE : tous les rayons dont les coordonnées sont exprimées dans le
 				//                 repère monde doivent avoir une direction normalisée.
-				Vector pixelPos = o+((x + 0.5) * ((r - l) / scene.resolution[0]) * u - (y + 0.5) * ((t - b) / scene.resolution[1]) * v);
+				Vector pixelPos = (o + ((x + 0.5) * ((r - l) / scene.resolution[0]) * u) - ((y + 0.5) * ((t - b) / scene.resolution[1]) * v));//.normalized();
 				Vector dir = (pixelPos - scene.camera.position).normalized();
 				ray =Ray(scene.camera.position, dir);
 			}
@@ -145,21 +145,23 @@ bool Raytracer::trace(Ray const &ray,
 		// Votre intersect() devrait être implémenté pour exclure toute intersection plus lointaine que hit.depth
 		Intersection hit;
 		Material m;
-		//hit.depth = depth;
-		 
+		bool forinterserc = false;
+		depth = 0;
+	
 		for(Object* object : scene.objects){
-		//for (i = 0; i < scene.objects.size(); ++i) {
+			
 			if (object->intersect(ray, hit)) {
-				
-				//if (hit.depth < depth) { 
 					m = object->material;
-					outColor = shade(ray, rayDepth, hit, m, scene);
 					depth = hit.depth;
-					return true;
-				//}
+					forinterserc = true;
+					//outColor = shade(ray, rayDepth, hit, m, scene);
 			}
+
 		}
-		
+		if (forinterserc) {
+			outColor = shade(ray, rayDepth, hit, m, scene);
+		}
+		return forinterserc;
 	}
 
     // Décrémente la profondeur du rayon.
@@ -187,20 +189,55 @@ Vector Raytracer::shade(Ray const &ray,
 	Vector diffuse(0);
 	Vector ambient(0);
 	Vector specular(0);
+	
 	for (auto lightIter = scene.lights.begin(); lightIter != scene.lights.end(); lightIter++)
 	{
 		// @@@@@@ VOTRE CODE ICI
 		// Calculez l'illumination locale ici, souvenez-vous d'ajouter les lumières ensemble.
 		// Testez également les ombres ici, si un point est dans l'ombre aucune couleur (sauf le terme ambient) ne devrait être émise.
+		//En evitant aussi les acnes de suface 
 		
+		Ray rayon = Ray(intersection.position+0.00001* (lightIter->position - intersection.position), lightIter->position-intersection.position);
+		Intersection hit;
+		bool ombre = false;
+		double distance = (lightIter->position - intersection.position).length();
+		for (Object* object : scene.objects) {
+			if (object->intersect(rayon, hit)) {
+				ombre = true;
+			}
+		}
+
+		//facteur d'attenuation
+		double d = (lightIter->position - hit.position).length();
+		double facteur = 1.0 / (lightIter->attenuation[0] + (d * lightIter->attenuation[1]) + (d * d * lightIter->attenuation[2]));
+
+		ambient += facteur * material.ambient * lightIter->ambient;
+		if (!ombre) {
+			float cosine = intersection.normal.dot((-lightIter->position + intersection.position).normalized());
+			diffuse += facteur * material.diffuse * lightIter->diffuse * cosine;
+			Vector h = ((intersection.position - lightIter->position).normalized() + (scene.camera.position - intersection.position).normalized()) / 2;
+			h.normalize();
+			float cosine2 = std::max(intersection.normal.normalized().dot(h), 0.0);
+			specular += facteur * material.specular * lightIter->specular * pow(cosine2, material.shininess);
+		}
 	}
 
 	Vector reflectedLight(0);
+	
 	if ((!(ABS_FLOAT(material.reflect) < 1e-6)) && (rayDepth < MAX_RAY_RECURSION))
 	{
+		double depth = 0;
 		// @@@@@@ VOTRE CODE ICI
 		// Calculez la couleur réfléchie en utilisant trace() de manière récursive.
-		
+			Vector l = ray.direction;
+			Vector n = intersection.normal;
+			Vector r = (- l + 2 * (n.dot(l)) * n).normalized();
+			Ray newRayon = Ray(intersection.position, r);
+
+			
+			trace(newRayon, rayDepth, scene, reflectedLight, depth);
+			
+			
 	}
 
 	return material.emission + ambient + diffuse + specular + material.reflect * reflectedLight;

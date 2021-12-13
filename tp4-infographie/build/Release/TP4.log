@@ -1,0 +1,13 @@
+﻿  main.cpp
+  object.cpp
+  parser.cpp
+  raytracer.cpp
+C:\Users\sadik\OneDrive\Desktop\search\Projets_infographie\tp4-infographie\image.hpp(72,7): warning C4996: 'fopen': This function or variable may be unsafe. Consider using fopen_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+C:\Users\sadik\OneDrive\Desktop\search\Projets_infographie\tp4-infographie\raytracer.cpp(196,29): warning C4244: 'initialisation' : conversion de 'double' en 'float', perte possible de données
+C:\Users\sadik\OneDrive\Desktop\search\Projets_infographie\tp4-infographie\raytracer.cpp(201,16): warning C4244: 'initialisation' : conversion de 'double' en 'float', perte possible de données
+C:\Users\sadik\OneDrive\Desktop\search\Projets_infographie\tp4-infographie\raytracer.cpp(206,17): warning C4244: 'initialisation' : conversion de 'double' en 'float', perte possible de données
+  Génération de code en cours
+  Previous IPDB not found, fall back to full compilation.
+  All 1018 functions were compiled because no usable IPDB/IOBJ from previous compilation was found.
+  Fin de la génération du code
+  TP4.vcxproj -> C:\Users\sadik\OneDrive\Desktop\search\Projets_infographie\tp4-infographie\TP4.exe

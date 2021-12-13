@@ -49,67 +49,56 @@ bool Sphere::localIntersect(Ray const &ray, Intersection &hit) const
 	//
 	// NOTE : hit.depth est la profondeur de l'intersection actuellement la plus proche,
 	// donc n'acceptez pas les intersections qui occurent plus loin que cette valeur.
-	/*Vector spherePos = {0,0,0};
-	Vector rayon = ray.direction.normalized();//-ray.origin;
-	float t = rayon.dot(-ray.origin.normalized());
-	Vector p = ray.origin + t * rayon;//ray.direction;
-	float y = p.length();
-
-	if (y >	 radius) {
-		return false;
-	}
-
-	float x = sqrt(radius * radius - y * y);
-	//t1 et t2 les deux intersections avec la sphere
-	float t1 = std::max(t - x, 0.f);
-	float t2 = std::min(t + x, float(hit.depth));
-	float t3 = std::min(t1, t2);
-	if (hit.depth > t3) {
-		hit.depth = t3;
-		hit.position = p; 
-		hit.normal = { 2 * p[0],2 * p[1],2 * p[2] };
-		
-	}*/
-	double b = ray.origin.dot(ray.direction);
+	
+	double b = ray.origin.dot(ray.direction) * 2;
 	double a = ray.direction.dot(ray.direction);
-	double c = (ray.origin.dot(ray.origin)) - radius * radius;
-	double discriminant =  b*b - 4 * a * c;
-	double epsilon = 0.0001f;
-	if (discriminant < -0.001) {
-	 return false;
-	}
-	if (discriminant < 0.001) {
-		double t = -sqrt(discriminant) / 2 * a;
+	double c = (ray.origin.dot(ray.origin)) - (radius * radius);
+
+	double discriminant =  b*b - (4 * a * c);
+
+	bool pos = false;
+
+	if (discriminant < 0.00001 && discriminant > -0.00001) { // ==0
+
+		float t = (- b) / (2.0 * a);
+		
 		Vector p = ray.origin + t * ray.direction;
-		if (hit.depth < t) {
+		if (t>0 && hit.depth > t) {
 			hit.depth = t;
 			hit.normal = p.normalized();
 			hit.position = p;
+			pos = true;
+			//return true;
 		}
-		return true;
+	
+		return pos;
 	}
-	else{
-		double t1 =  (ray.origin.dot(ray.direction)+sqrt(discriminant))/(2*ray.direction.dot(ray.direction));
+	else if(discriminant>0) {
+		double t1 =  (- b + sqrt(discriminant)) / (2.0 * a);
 
-		double t2 =  (ray.origin.dot(ray.direction)-sqrt(discriminant))/(2*ray.direction.dot(ray.direction));
+		double t2 = (-b - sqrt(discriminant)) / (2.0 * a);
 		double t3 = 0.0;
 		if (t1 > 0 && t2 > 0) {  t3 = std::min(t1, t2); }
 
-		if (t1 < 0 && t2>0) {  t3 = t2; }
+		else if (t1 < 0 && t2>0) {  t3 = t2; }
 
-		if (t1 > 0 && t2 < 0) {  t3 = t1; }
+		else if (t1 > 0 && t2 < 0) {  t3 = t1; }
+
+		//if (t3 < 0.0) { return false; }
 
 		Vector p = ray.origin + t3 * ray.direction;
 		
-		if (hit.depth > t3){
+		if (t3>0 && hit.depth > t3){
 			hit.depth = t3;
 			hit.normal = p.normalized();
 			hit.position = p;
+			pos = true;
+			//return true;
 		}
-		return true;
+		return pos;
 	}
-	
-	//return true;
+	return pos;
+	//return false;
 }
 
 
@@ -121,27 +110,31 @@ bool Plane::localIntersect(Ray const &ray, Intersection &hit) const
 	//
 	// NOTE : hit.depth est la profondeur de l'intersection actuellement la plus proche,
 	// donc n'acceptez pas les intersections qui occurent plus loin que cette valeur.
-	Vector rayon = ray.direction;//-ray.origin;
-	Vector normalPlan = { 0,0,1 };
-	if (rayon.dot(normalPlan) == 0) {//veut dire plan et rayon meme direction
+	Vector rayon = ray.direction-ray.origin;//.normalized();//
+	Vector normalPlan = { 0.0,0.0,1.0 };
+	double scal = rayon.dot(normalPlan);
+	if (scal > -0.00001 && scal <	0.00001) {//veut dire plan et rayon meme direction
 		return false;
 	}
-	//le parametre t avec z=0
+	//le parametre t avec z=0 // les coordonees en z de lequation parametrique
 	double t=-ray.origin[2]/ray.direction[2];
 	//coordones du point secant
-	Vector pointS = { ray.origin[0] + t * ray.direction[0], ray.origin[1] + t * ray.direction[1],ray.origin[2] + t * ray.direction[2] };
-	if (hit.depth > t) {
+	Vector pointS = ray.origin + t * ray.direction;
+	if (hit.depth >t && t > 0.001) {
 		hit.depth = t;
 		hit.position = pointS;
-		hit.normal = normalPlan;
+		hit.normal = pointS.normalized();
+		return true;
 	}
 	
-    return true;
+    return false;
 }
 
 
 bool Conic::localIntersect(Ray const &ray, Intersection &hit) const {
     // @@@@@@ VOTRE CODE ICI (licence créative)
+	Vector origin = ray.origin;
+	Vector direction = ray.direction;
     return false;
 }
 
@@ -205,15 +198,15 @@ bool Mesh::intersectTriangle(Ray const &ray,
 	Vector p1p2 = p2 - p1;
 	Vector p2p0 = p0 - p2;
 	Vector p0p2 = p2 - p0;
-	Vector p0p1 = p1 - p0;
-	Vector normal = p0p2.cross(p0p1);
-	normal.normalize(); //a revoir 
+	Vector p0p1 = p1 - p0;	
+	Vector normal = p1p2.cross(p0-p1);
+	//normal.normalize(); //a revoir 
 	//composant D de l'equation
-	double d = -1*normal.dot(p0);
+	double d = -1*(normal.dot(p0));
 
 	double t = (-d - normal.dot(ray.origin)) / (normal.dot(ray.direction));
 
-	if (t <= 0.00) {
+	if (t < 0.0001) {
 		return false;
 	}
 	//Composants du vecteur P intersection
@@ -228,13 +221,16 @@ bool Mesh::intersectTriangle(Ray const &ray,
 	Vector p1V = p1p2.cross(p1p);
 	Vector p2V = p2p0.cross(p2p);
 
-	if ((p0V.dot(p1V) >= 0 && p0V.dot(p2V) >= 0 && p1V.dot(p2V) >= 0) || (p0V.dot(p1V) < 0 && p0V.dot(p2V) < 0 && p1V.dot(p2V) < 0)) {
-		hit.depth = t;
-		hit.position = p;
-		hit.normal = p.normalized();
-		return true;
+	if ((p0V.dot(p1V) > 0 && p0V.dot(p2V) > 0 && p1V.dot(p2V) > 0) ||
+		(p0V.dot(p1V) < 0 && p0V.dot(p2V) < 0 && p1V.dot(p2V) < 0)) {
+		if (hit.depth > t) {
+			hit.depth = t;
+			hit.position = p;
+			hit.normal = normal.normalized();// p.normalized();
+			return true;
+		}
 	}
-
+	return false;
 	// @@@@@@ VOTRE CODE ICI
 	// Décidez si le rayon intersecte le triangle (p0,p1,p2).
 	// Si c'est le cas, remplissez la structure hit avec les informations
@@ -246,5 +242,5 @@ bool Mesh::intersectTriangle(Ray const &ray,
 	// donc n'acceptez pas les intersections qui occurent plus loin que cette valeur.
 	//!!! NOTE UTILE : pour le point d'intersection, sa normale doit satisfaire hit.normal.dot(ray.direction) < 0
 
-	return false;
+	
 }
